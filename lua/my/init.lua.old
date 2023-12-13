@@ -1,0 +1,194 @@
+-------------
+-- Options --
+-------------
+
+local opts = {
+  backup = false,
+  clipboard = "unnamedplus",
+  fileencoding = "utf-8",
+  hlsearch = true,
+  incsearch = false,
+  ignorecase = true,
+  mouse = "a",
+  swapfile = false,
+  termguicolors = true,
+  timeoutlen = 1000,
+  undofile = true,
+  updatetime = 500,
+  writebackup = false,
+  expandtab = true,
+  shiftwidth = 4,
+  tabstop = 4,
+  cursorline = true,
+  number = true,
+  relativenumber = true,
+  signcolumn = "yes",
+  wrap = false,
+  scrolloff = 8,
+  sidescrolloff = 8
+}
+
+for k, v in pairs(opts) do
+  vim.opt[k] = v
+end
+
+-------------
+-- Keymaps --
+-------------
+
+local keymap = vim.api.nvim_set_keymap
+local opts = { noremap = true, silent = true }
+
+-- keymap("n", "<Space>", "<Nop>", opts)
+
+-- Leader
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
+
+-- Simpler window navigation
+keymap("n", "<C-h>", "<C-w>h", opts)
+keymap("n", "<C-j>", "<C-w>j", opts)
+keymap("n", "<C-k>", "<C-w>k", opts)
+keymap("n", "<C-l>", "<C-w>l", opts)
+
+-- Open explorer
+keymap("n", "<leader>e", ":Lexplore 30<CR>", opts)
+
+-- Navigate buffers
+keymap("n", "S-l", "bnext<CR>", opts)
+keymap("n", "S-h", "bprevious<CR>", opts)
+
+-------------
+-- Plugins --
+-------------
+
+-- Init lazy.nvim
+require("my.lazy")
+
+local plugins = {
+    "williamboman/mason.nvim",
+    "williamboman/mason-lspconfig.nvim",
+    "ellisonleao/gruvbox.nvim",
+    "catppuccin/nvim",
+    "nvim-lualine/lualine.nvim",
+    "neovim/nvim-lspconfig",
+    "simrat39/rust-tools.nvim",
+    "nvim-treesitter/nvim-treesitter",
+}
+
+local opts = {
+    colorscheme = "catppuccin",
+}
+
+require("lazy").setup(plugins, opts)
+
+-- Mason
+require("mason").setup({
+    ui = {
+        icons = {
+            package_installed = "✓",
+            package_pending = "➜",
+            package_uninstalled = "✗"
+        }
+    }
+})
+require("mason-lspconfig").setup()
+
+-- Lualine
+require('lualine').setup({
+    options = {
+        theme = "powerline" -- default is "auto"
+    }
+})
+
+-- Neovim-LSP
+--require('lspconfig').rust_analyzer.setup()
+
+-- Treesitter
+require('nvim-treesitter.configs').setup {
+  ensure_installed = { "lua", "rust", "toml" },
+  auto_install = true,
+  highlight = {
+    enable = true,
+    additional_vim_regex_highlighting=false,
+  },
+  ident = { enable = true }, 
+  rainbow = {
+    enable = true,
+    extended_mode = true,
+    max_file_lines = nil,
+  }
+}
+
+require("lazy").setup({
+  "hrsh7th/nvim-cmp",
+  version = false, -- last release is way too old
+  event = "InsertEnter",
+  dependencies = {
+    "hrsh7th/cmp-nvim-lsp",
+    "hrsh7th/cmp-buffer",
+    "hrsh7th/cmp-path",
+    "saadparwaiz1/cmp_luasnip",
+  },
+  opts = function()
+    vim.api.nvim_set_hl(0, "CmpGhostText", { link = "Comment", default = true })
+    local cmp = require("cmp")
+    local defaults = require("cmp.config.default")()
+    return {
+      completion = {
+        completeopt = "menu,menuone,noinsert",
+      },
+      snippet = {
+        expand = function(args)
+          require("luasnip").lsp_expand(args.body)
+        end,
+      },
+      mapping = cmp.mapping.preset.insert({
+        ["<C-n>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Insert }),
+        ["<C-p>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Insert }),
+        ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+        ["<C-f>"] = cmp.mapping.scroll_docs(4),
+        ["<C-Space>"] = cmp.mapping.complete(),
+        ["<C-e>"] = cmp.mapping.abort(),
+        ["<CR>"] = cmp.mapping.confirm({ select = true }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
+        ["<S-CR>"] = cmp.mapping.confirm({
+          behavior = cmp.ConfirmBehavior.Replace,
+          select = true,
+        }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
+        ["<C-CR>"] = function(fallback)
+          cmp.abort()
+          fallback()
+        end,
+      }),
+      sources = cmp.config.sources({
+        { name = "nvim_lsp" },
+        { name = "luasnip" },
+        { name = "path" },
+      }, {
+        { name = "buffer" },
+      }),
+      formatting = {
+        format = function(_, item)
+          local icons = require("lazyvim.config").icons.kinds
+          if icons[item.kind] then
+            item.kind = icons[item.kind] .. item.kind
+          end
+          return item
+        end,
+      },
+      experimental = {
+        ghost_text = {
+          hl_group = "CmpGhostText",
+        },
+      },
+      sorting = defaults.sorting,
+    }
+  end,
+  ---@param opts cmp.ConfigSchema
+  config = function(_, opts)
+    for _, source in ipairs(opts.sources) do
+      source.group_index = source.group_index or 1
+    end
+    require("cmp").setup(opts)
+  end,
+})
